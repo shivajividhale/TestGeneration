@@ -15,6 +15,7 @@ function main()
 	{
 		args = ["subject.js"];
 	}
+
 	var filePath = args[0];
 
 	constraints(filePath);
@@ -66,10 +67,12 @@ var mockFileLibrary =
 	{
 		pathContent: 
 		{	
-  			file1: 'text content',
+  			file1: 'text content'
 		}
 	}
 };
+
+
 
 function generateTestCases()
 {
@@ -96,17 +99,49 @@ function generateTestCases()
 		var pathExists      = _.some(constraints, {kind: 'fileExists' });
 
 		// plug-in values for parameters
+		console.log("For "+funcName);
 		for( var c = 0; c < constraints.length; c++ )
 		{
 			var constraint = constraints[c];
-			if( params.hasOwnProperty( constraint.ident ) )
-			{
-				params[constraint.ident] = constraint.value;
+			console.log("Constraint: "+JSON.stringify(constraint));
+			if( params.hasOwnProperty( constraint.ident ) ){
+				console.log("indent: "+constraint.ident+" value: "+constraint.value);
+				if (constraint.value == 'undefined' && constraint.kind == 'integer'){
+					params[constraint.ident]=createConcreteIntegerValue(0,10);
+					var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
+					content += "subject.{0}({1});\n".format(funcName, args );
+				}
+				if(constraint.operator == '<' && constraint.kind == 'integer')
+				{
+					//console.log(params[constraint.indent]);
+					params[constraint.ident]=createConcreteIntegerValue(1,constraint.value);
+					var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
+					content += "subject.{0}({1});\n".format(funcName, args );
+
+					//Test for lesser value
+					params[constraint.ident]=createConcreteIntegerValue(0,constraint.value);
+					args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
+					content += "subject.{0}({1});\n".format(funcName, args );
+				}
+				if(constraint.operator == '>' && constraint.kind == 'integer')
+				{
+					params[constraint.ident]=createConcreteIntegerValue(0,constraint.value);
+					var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
+					content += "subject.{0}({1});\n".format(funcName, args );
+
+					params[constraint.ident]=createConcreteIntegerValue(1,constraint.value);
+						args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
+					content += "subject.{0}({1});\n".format(funcName, args );
+					continue;
+
+				}
+				params[constraint.ident]=constraint.value;//constraint.value;
 			}
 		}
 
 		// Prepare function arguments.
 		var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
+		console.log("Params: "+JSON.stringify(params)+"Arguments: "+args+"Key: "+JSON.stringify(params));
 		if( pathExists || fileWithContent )
 		{
 			content += generateMockFsTestCases(pathExists,fileWithContent,funcName, args);
@@ -119,6 +154,8 @@ function generateTestCases()
 		{
 			// Emit simple test case.
 			content += "subject.{0}({1});\n".format(funcName, args );
+			console.log("Args: "+args);
+			//console.log(content);
 		}
 
 	}
@@ -157,7 +194,7 @@ function constraints(filePath)
 {
    var buf = fs.readFileSync(filePath, "utf8");
 	var result = esprima.parse(buf, options);
-
+	//console.log(result);
 	traverse(result, function (node) 
 	{
 		if (node.type === 'FunctionDeclaration') 
@@ -177,9 +214,11 @@ function constraints(filePath)
 					if( child.left.type == 'Identifier' && params.indexOf( child.left.name ) > -1)
 					{
 						// get expression from original source code:
+						console.log("Child's range: "+JSON.stringify(child.range));
 						var expression = buf.substring(child.range[0], child.range[1]);
+						console.log("Buf:  child: {0} expression: {1}".format(JSON.stringify(child)),expression);
 						var rightHand = buf.substring(child.right.range[0], child.right.range[1])
-
+						console.log("Righthand :"+rightHand);
 						functionConstraints[funcName].constraints.push( 
 							new Constraint(
 							{
@@ -190,6 +229,44 @@ function constraints(filePath)
 								operator : child.operator,
 								expression: expression
 							}));
+					}
+				}
+
+				if(child.type === 'BinaryExpression' && child.operator == "<")
+				{
+					if( child.left.type == 'Identifier' && params.indexOf( child.left.name ) > -1)
+					{
+						var expression = buf.substring(child.range[0], child.range[1]);
+						var rightHand = buf.substring(child.right.range[0], child.right.range[1])
+						functionConstraints[funcName].constraints.push(
+							new Constraint(
+								{
+									ident: child.left.name,
+									value: rightHand,
+									funcName: funcName,
+									kind: "integer",
+									operator : child.operator,
+									expression: expression
+								}));
+					}
+				}
+
+				if(child.type === 'BinaryExpression' && child.operator == ">")
+				{
+					if( child.left.type == 'Identifier' && params.indexOf( child.left.name ) > -1)
+					{
+						var expression = buf.substring(child.range[0], child.range[1]);
+						var rightHand = buf.substring(child.right.range[0], child.right.range[1])
+						functionConstraints[funcName].constraints.push(
+							new Constraint(
+								{
+									ident: child.left.name,
+									value: rightHand,
+									funcName: funcName,
+									kind: "integer",
+									operator : child.operator,
+									expression: expression
+								}));
 					}
 				}
 
@@ -240,7 +317,7 @@ function constraints(filePath)
 
 			});
 
-			console.log( functionConstraints[funcName]);
+			//console.log( functionConstraints[funcName]);
 
 		}
 	});
