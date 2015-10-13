@@ -61,7 +61,7 @@ var mockFileLibrary =
 {
 	pathExists:
 	{
-		'path/fileExists':{file : 'a.txt'}
+		'path/fileExists':{file1: 'a.txt'}
 	},
 	fileWithContent:
 	{
@@ -163,10 +163,10 @@ function generateTestCases()
 		console.log("Params: "+JSON.stringify(params)+"Arguments: "+args+"Key: "+JSON.stringify(params));
 		if( pathExists || fileWithContent )
 		{
-			content += generateMockFsTestCases(pathExists,fileWithContent,funcName, args);
-			content += generateMockFsTestCases(!pathExists,fileWithContent,funcName, args);
-			content += generateMockFsTestCases(pathExists,!fileWithContent,funcName, args);
-			content += generateMockFsTestCases(!pathExists,!fileWithContent,funcName, args);
+			content += generateMockFsTestCases(pathExists,fileWithContent,funcName, args,true);
+			content += generateMockFsTestCases(!pathExists,fileWithContent,funcName, args,true);
+			content += generateMockFsTestCases(pathExists,!fileWithContent,funcName, args,true);
+			content += generateMockFsTestCases(!pathExists,!fileWithContent,funcName, args,true);
 		}
 		else
 		{
@@ -183,7 +183,7 @@ function generateTestCases()
 
 }
 
-function generateMockFsTestCases (pathExists,fileWithContent,funcName,args) 
+function generateMockFsTestCases (pathExists,fileWithContent,funcName,args, recursion)
 {
 	var testCase = "";
 	// Build mock file system based on constraints.
@@ -203,16 +203,17 @@ function generateMockFsTestCases (pathExists,fileWithContent,funcName,args)
 		JSON.stringify(mergedFS)
 		+
 	");\n";
-	mergedFS = {};
-
-	"mock(" +
-	JSON.stringify(mergedFS)
-	+
-	");\n";
-
 	testCase += "\tsubject.{0}({1});\n".format(funcName, args );
 	testCase+="mock.restore();\n";
+	testCase += "\tsubject.{0}({1});\n".format(funcName, args );
 	console.log(testCase);
+	var temp = mockFileLibrary.pathExists['path/fileExists'];
+	if(pathExists && recursion){
+		mockFileLibrary.pathExists['path/fileExists']={};
+		testCase += generateMockFsTestCases(pathExists,fileWithContent,funcName,args, false);
+	}
+	mockFileLibrary.pathExists['path/fileExists']=temp;
+
 	return testCase;
 }
 
