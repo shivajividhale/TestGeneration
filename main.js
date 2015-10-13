@@ -205,15 +205,21 @@ function generateMockFsTestCases (pathExists,fileWithContent,funcName,args, recu
 	");\n";
 	testCase += "\tsubject.{0}({1});\n".format(funcName, args );
 	testCase+="mock.restore();\n";
-	testCase += "\tsubject.{0}({1});\n".format(funcName, args );
+	//testCase += "\tsubject.{0}({1});\n".format(funcName, args );
 	console.log(testCase);
-	var temp = mockFileLibrary.pathExists['path/fileExists'];
+	var tempPathExists = mockFileLibrary.pathExists['path/fileExists'];
 	if(pathExists && recursion){
 		mockFileLibrary.pathExists['path/fileExists']={};
 		testCase += generateMockFsTestCases(pathExists,fileWithContent,funcName,args, false);
 	}
-	mockFileLibrary.pathExists['path/fileExists']=temp;
+	mockFileLibrary.pathExists['path/fileExists']=tempPathExists;
 
+	var tempFileWithContent = mockFileLibrary.fileWithContent['pathContent'].file1;
+	if(fileWithContent && recursion){
+		mockFileLibrary.fileWithContent['pathContent'].file1 = "";
+		testCase += generateMockFsTestCases(pathExists,fileWithContent,funcName,args, false);
+	}
+	mockFileLibrary.fileWithContent['pathContent'].file1 = tempFileWithContent;
 	return testCase;
 }
 
