@@ -61,7 +61,7 @@ var mockFileLibrary =
 {
 	pathExists:
 	{
-		'path/fileExists': {}
+		'path/fileExists':{file : 'a.txt'}
 	},
 	fileWithContent:
 	{
@@ -97,32 +97,48 @@ function generateTestCases()
 		// Handle global constraints...
 		var fileWithContent = _.some(constraints, {kind: 'fileWithContent' });
 		var pathExists      = _.some(constraints, {kind: 'fileExists' });
-
-		// plug-in values for parameters
+		console.log("file with contents "+fileWithContent);
+		console.log("path exists "+pathExists);
 		console.log("For "+funcName);
 		for( var c = 0; c < constraints.length; c++ )
 		{
 			var constraint = constraints[c];
-			console.log("Constraint: "+JSON.stringify(constraint));
+			//console.log("Constraint: "+JSON.stringify(constraint));
+			console.log(constraint.expression);
 			if( params.hasOwnProperty( constraint.ident ) ){
 				console.log("indent: "+constraint.ident+" value: "+constraint.value);
+				params[constraint.ident]=constraint.value;//constraint.value;
+
 				if (constraint.value == 'undefined' && constraint.kind == 'integer'){
 					params[constraint.ident]=createConcreteIntegerValue(0,10);
 					var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
 					content += "subject.{0}({1});\n".format(funcName, args );
 				}
-				if(constraint.operator == '<' && constraint.kind == 'integer')
+
+				if(constraint.operator == '==' && constraint.kind == 'integer')
 				{
-					//console.log(params[constraint.indent]);
-					params[constraint.ident]=createConcreteIntegerValue(1,constraint.value);
 					var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
 					content += "subject.{0}({1});\n".format(funcName, args );
+					params[constraint.ident]=createConcreteIntegerValue(1,10);
 
-					//Test for lesser value
-					params[constraint.ident]=createConcreteIntegerValue(0,constraint.value);
+					params[constraint.ident] = constraint.value;
+					var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
+					content += "subject.{0}({1});\n".format(funcName, args );
+					continue;
+				}
+
+				if(constraint.operator == '<' && constraint.kind == 'integer')
+				{
+					params[constraint.ident]=createConcreteIntegerValue(0,constraint.value-1);
 					args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
 					content += "subject.{0}({1});\n".format(funcName, args );
+
+					params[constraint.ident]=createConcreteIntegerValue(1,constraint.value);
+					var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
+
+					content += "subject.{0}({1});\n".format(funcName, args );
 				}
+
 				if(constraint.operator == '>' && constraint.kind == 'integer')
 				{
 					params[constraint.ident]=createConcreteIntegerValue(0,constraint.value);
@@ -130,22 +146,24 @@ function generateTestCases()
 					content += "subject.{0}({1});\n".format(funcName, args );
 
 					params[constraint.ident]=createConcreteIntegerValue(1,constraint.value);
-						args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
+					args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
 					content += "subject.{0}({1});\n".format(funcName, args );
 					continue;
 
 				}
-				params[constraint.ident]=constraint.value;//constraint.value;
 			}
-		}
+			//Test for lesser value
+			//console.log(params[constraint.indent]);
+			// plug-in values for parameters
 
-		// Prepare function arguments.
+			// Prepare function arguments.
+			// Bonus...generate constraint variations test cases....
+		}
 		var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
 		console.log("Params: "+JSON.stringify(params)+"Arguments: "+args+"Key: "+JSON.stringify(params));
 		if( pathExists || fileWithContent )
 		{
 			content += generateMockFsTestCases(pathExists,fileWithContent,funcName, args);
-			// Bonus...generate constraint variations test cases....
 			content += generateMockFsTestCases(!pathExists,fileWithContent,funcName, args);
 			content += generateMockFsTestCases(pathExists,!fileWithContent,funcName, args);
 			content += generateMockFsTestCases(!pathExists,!fileWithContent,funcName, args);
@@ -172,7 +190,8 @@ function generateMockFsTestCases (pathExists,fileWithContent,funcName,args)
 	var mergedFS = {};
 	if( pathExists )
 	{
-		for (var attrname in mockFileLibrary.pathExists) { mergedFS[attrname] = mockFileLibrary.pathExists[attrname]; }
+		for (var attrname in mockFileLibrary.pathExists) { mergedFS[attrname] = mockFileLibrary.pathExists[attrname];
+		console.log("merge attr"+ JSON.stringify(mergedFS));}
 	}
 	if( fileWithContent )
 	{
@@ -184,9 +203,16 @@ function generateMockFsTestCases (pathExists,fileWithContent,funcName,args)
 		JSON.stringify(mergedFS)
 		+
 	");\n";
+	mergedFS = {};
+
+	"mock(" +
+	JSON.stringify(mergedFS)
+	+
+	");\n";
 
 	testCase += "\tsubject.{0}({1});\n".format(funcName, args );
 	testCase+="mock.restore();\n";
+	console.log(testCase);
 	return testCase;
 }
 
