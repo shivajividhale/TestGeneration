@@ -45,12 +45,14 @@ function Constraint(properties)
 	// integer, string, phoneNumber
 	this.kind = properties.kind;
 }
-
+String.prototype.replaceAt=function(index, character) {
+	return this.substr(0, index) + character + this.substr(index+character.length);
+}
 function fakeDemo()
 {
-	console.log( faker.phone.phoneNumber() );
-	console.log( faker.phone.phoneNumberFormat() );
-	console.log( faker.phone.phoneFormats() );
+	console.log( "Phone number: "+faker.phone.phoneNumber('NNN-NNN-NNNN') );
+	console.log( "Phone number format: "+faker.phone.phoneNumberFormat() );
+	console.log( "Phone formats: "+faker.phone.phoneFormats() );
 }
 
 var functionConstraints =
@@ -97,17 +99,43 @@ function generateTestCases()
 		// Handle global constraints...
 		var fileWithContent = _.some(constraints, {kind: 'fileWithContent' });
 		var pathExists      = _.some(constraints, {kind: 'fileExists' });
+		var Phone_Input		= _.some(constraints, {kind: 'phoneNumber' });
+		if(Phone_Input)
 		console.log("file with contents "+fileWithContent);
 		console.log("path exists "+pathExists);
 		console.log("For "+funcName);
+		var blacklist = "";
 		for( var c = 0; c < constraints.length; c++ )
 		{
 			var constraint = constraints[c];
+
+			if(Phone_Input){
+				console.log("phone input!!!!!!!!!!!!!!!!!!");
+				blacklist = faker.phone.phoneNumber("###-###-###");
+				console.log(blacklist);
+			}
+			if(Phone_Input && constraint.operator == "=="){
+				var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
+				content += "subject.{0}({1});\n".format(funcName, args );
+				blacklist = blacklist.replaceAt(0,constraint.value.substr(1,constraint.value.length-1));
+				blacklist = blacklist.replace("\"","-")
+				//var numbers = blacklist.split("-");
+				//numbers[0] = parseInt(constraint.value.substr(1,constraint.value.length-1));
+				//var phonenum = numbers.join("");
+				console.log("After replacing "+blacklist);
+				blacklist = "\""+blacklist+"\"";
+				var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
+				content += "subject.{0}({1});\n".format(funcName, blacklist );
+
+			}
+
 			//console.log("Constraint: "+JSON.stringify(constraint));
 			console.log(constraint.expression);
 			if( params.hasOwnProperty( constraint.ident ) ){
 				console.log("indent: "+constraint.ident+" value: "+constraint.value);
 				params[constraint.ident]=constraint.value;//constraint.value;
+
+
 
 				if (constraint.value == 'undefined' && constraint.kind == 'integer'){
 					params[constraint.ident]=createConcreteIntegerValue(0,10);
@@ -242,6 +270,26 @@ function constraints(filePath)
 			// Check for expressions using argument.
 			traverse(node, function(child)
 			{
+				if( child.type === 'BinaryExpression' && child.operator == "=="){
+					if( child.left.type == 'Identifier' && child.right.type == "Literal")
+					{ console.log("Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+						var expression = buf.substring(child.range[0], child.range[1]);
+						console.log("Buf:  child: {0} expression: {1}".format(JSON.stringify(child)),expression);
+						var rightHand = buf.substring(child.right.range[0], child.right.range[1])
+
+						functionConstraints[funcName].constraints.push(
+							new Constraint(
+								{
+									ident: child.left.name,
+									value: rightHand,
+									funcName: funcName,
+									kind: "phoneNumber",
+									operator : child.operator,
+									expression: expression
+								}));
+					}
+				}
+
 				if( child.type === 'BinaryExpression' && child.operator == "==")
 				{
 					if( child.left.type == 'Identifier' && params.indexOf( child.left.name ) > -1)
@@ -306,7 +354,7 @@ function constraints(filePath)
 				if( child.type == "CallExpression" && 
 					 child.callee.property &&
 					 child.callee.property.name =="readFileSync" )
-				{
+				{console.log("readFileSync!!!!!!!!!!!!!!!!!!!!");
 					for( var p =0; p < params.length; p++ )
 					{
 						if( child.arguments[0].name == params[p] )
@@ -344,6 +392,52 @@ function constraints(filePath)
 								operator : child.operator,
 								expression: expression
 							}));
+						}
+					}
+				}
+
+				if( child.type == "CallExpression" &&
+					//child.callee.property &&
+					child.callee.name =="normalize")
+				{	console.log("Normalize!!!!!!!!!!!!!!!!!!!");
+					for( var p =0; p < params.length; p++ )
+					{
+						if( child.arguments[0].name == params[p] )
+						{
+							functionConstraints[funcName].constraints.push(
+								new Constraint(
+									{
+										ident: params[p],
+										// A fake path to a file
+										value:  "\'"+faker.phone.phoneNumber()+"\'",
+										funcName: funcName,
+										operator : child.operator,
+										expression: expression
+									}));
+						}
+					}
+				}
+
+				if( child.type == "CallExpression" &&
+						//child.callee.property &&
+					child.callee.name =="format")
+				{	console.log("Format!!!!!!!!!!!!!!!!!!!");
+					for( var p =0; p < params.length; p++ )
+					{
+						if( child.arguments[0].name == params[p] )
+						{
+							functionConstraints[funcName].constraints.push(
+								new Constraint(
+									{
+										ident: params[p],
+										// A fake path to a file
+										value:  "\'"+faker.phone.phoneNumber()+"\'",
+										funcName: funcName,
+										operator : child.operator,
+										expression: expression
+									}));
+							//var areaNumber = ""+faker.phone.phoneNumber()+"";
+
 						}
 					}
 				}
@@ -411,3 +505,4 @@ if (!String.prototype.format) {
 }
 
 main();
+fakeDemo();
