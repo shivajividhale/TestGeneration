@@ -92,7 +92,14 @@ function generateTestCases()
 			params[paramName] = '\'\'';
 		}
 
+		var Arguments = {};
 		//console.log( params );
+		for (var i =0; i < functionConstraints[funcName].params.length; i++ )
+		{
+			var paramName = functionConstraints[funcName].params[i];
+			Arguments[paramName] = [];
+		}
+
 
 		// update parameter values based on known constraints.
 		var constraints = functionConstraints[funcName].constraints;
@@ -134,6 +141,7 @@ function generateTestCases()
 
 				if (constraint.value == 'undefined' && constraint.kind == 'integer'){
 					params[constraint.ident]=createConcreteIntegerValue(0,10);
+					Arguments[constraint.ident].push(params[constraint.ident]);
 					var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
 					content += "subject.{0}({1});\n".format(funcName, args );
 
@@ -141,11 +149,28 @@ function generateTestCases()
 
 				if(constraint.operator == '==' && constraint.kind == 'integer')
 				{
+					params[constraint.ident]=createConcreteIntegerValue(1,10);
+					Arguments[constraint.ident].push(params[constraint.ident]);
 					var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
 					content += "subject.{0}({1});\n".format(funcName, args );
-					params[constraint.ident]=createConcreteIntegerValue(1,10);
 
 					params[constraint.ident] = constraint.value;
+					Arguments[constraint.ident].push(params[constraint.ident]);
+					var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
+					content += "subject.{0}({1});\n".format(funcName, args );
+					continue;
+				}
+
+				if(constraint.operator == '==' && constraint.kind == 'string' &&!Phone_Input)
+				{
+					constraintvalue = constraint.value.substring(1,constraint.value.length-1);
+					params[constraint.ident]="\""+constraintvalue+createConcreteIntegerValue(1,10)+"\"";
+					Arguments[constraint.ident].push(params[constraint.ident]);
+					var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
+					content += "subject.{0}({1});\n".format(funcName, args );
+
+					params[constraint.ident] = constraint.value;
+					Arguments[constraint.ident].push(params[constraint.ident]);
 					var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
 					content += "subject.{0}({1});\n".format(funcName, args );
 					continue;
@@ -154,10 +179,12 @@ function generateTestCases()
 				if((constraint.operator == '<' || constraint.operator == '<=') && constraint.kind == 'integer')
 				{
 					params[constraint.ident]=createConcreteIntegerValue(0,constraint.value-1);
+					Arguments[constraint.ident].push(params[constraint.ident]);
 					args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
 					content += "subject.{0}({1});\n".format(funcName, args );
 
 					params[constraint.ident]=createConcreteIntegerValue(1,constraint.value);
+					Arguments[constraint.ident].push(params[constraint.ident]);
 					var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
 
 					content += "subject.{0}({1});\n".format(funcName, args );
@@ -166,10 +193,12 @@ function generateTestCases()
 				if((constraint.operator == '>'||constraint.operator == '>=') && constraint.kind == 'integer')
 				{
 					params[constraint.ident]=createConcreteIntegerValue(0,constraint.value);
+					Arguments[constraint.ident].push(params[constraint.ident]);
 					var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
 					content += "subject.{0}({1});\n".format(funcName, args );
 
 					params[constraint.ident]=createConcreteIntegerValue(1,constraint.value);
+					Arguments[constraint.ident].push(params[constraint.ident]);
 					args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
 					content += "subject.{0}({1});\n".format(funcName, args );
 					continue;
@@ -266,17 +295,33 @@ function constraints(filePath)
 					if( child.left.type == 'Identifier' && child.right.type == "Literal")
 					{ 	var expression = buf.substring(child.range[0], child.range[1]);
 						var rightHand = buf.substring(child.right.range[0], child.right.range[1])
+						var matches = rightHand.match(/\d+/g);
+						if (matches != null) {
 
-						functionConstraints[funcName].constraints.push(
-							new Constraint(
-								{
-									ident: child.left.name,
-									value: rightHand,
-									funcName: funcName,
-									kind: "phoneNumber",
-									operator : child.operator,
-									expression: expression
-								}));
+							functionConstraints[funcName].constraints.push(
+								new Constraint(
+									{
+										ident: child.left.name,
+										value: rightHand,
+										funcName: funcName,
+										kind: "phoneNumber",
+										operator : child.operator,
+										expression: expression
+									}));
+						}
+						else{
+
+							functionConstraints[funcName].constraints.push(
+								new Constraint(
+									{
+										ident: child.left.name,
+										value: rightHand,
+										funcName: funcName,
+										kind: "string",
+										operator : child.operator,
+										expression: expression
+									}));
+						}
 					}
 				}
 
