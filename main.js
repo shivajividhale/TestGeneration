@@ -114,6 +114,13 @@ function generateTestCases()
 				blacklist = faker.phone.phoneNumber("###-###-###");
 				console.log(blacklist);
 			}
+			if(constraint.operator == "!"){
+				console.log("WOOAHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH");
+				params[constraint.ident] = constraint.value;
+				var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
+				content += "subject.{0}({1});\n".format(funcName, args );
+
+			}
 			if(Phone_Input && constraint.operator == "=="){
 				var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
 				content += "subject.{0}({1});\n".format(funcName, args );
@@ -155,7 +162,7 @@ function generateTestCases()
 					continue;
 				}
 
-				if(constraint.operator == '<' && constraint.kind == 'integer')
+				if((constraint.operator == '<' || constraint.operator == '<=') && constraint.kind == 'integer')
 				{
 					params[constraint.ident]=createConcreteIntegerValue(0,constraint.value-1);
 					args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
@@ -167,7 +174,7 @@ function generateTestCases()
 					content += "subject.{0}({1});\n".format(funcName, args );
 				}
 
-				if(constraint.operator == '>' && constraint.kind == 'integer')
+				if((constraint.operator == '>'||constraint.operator == '>=') && constraint.kind == 'integer')
 				{
 					params[constraint.ident]=createConcreteIntegerValue(0,constraint.value);
 					var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
@@ -313,7 +320,7 @@ function constraints(filePath)
 					}
 				}
 
-				if(child.type === 'BinaryExpression' && child.operator == "<")
+				if(child.type === 'BinaryExpression' && (child.operator == "<" || child.operator == "<=") )
 				{
 					if( child.left.type == 'Identifier' && params.indexOf( child.left.name ) > -1)
 					{
@@ -332,7 +339,7 @@ function constraints(filePath)
 					}
 				}
 
-				if(child.type === 'BinaryExpression' && child.operator == ">")
+				if(child.type === 'BinaryExpression' && (child.operator == ">" ||child.operator == '>='))
 				{
 					if( child.left.type == 'Identifier' && params.indexOf( child.left.name ) > -1)
 					{
@@ -394,6 +401,23 @@ function constraints(filePath)
 							}));
 						}
 					}
+				}
+
+				if( child.type == "UnaryExpression" && child.argument.property &&
+					child.argument.property.name =="normalize")
+				{	console.log("unary nor");
+
+					functionConstraints[funcName].constraints.push(
+						new Constraint(
+							{
+								ident: child.argument.object.name,
+								// A fake path to a file
+								value:  "{\"normalize\" : true}",
+								funcName: funcName,
+								operator : child.operator,
+								expression: expression
+							}))
+
 				}
 
 				if( child.type == "CallExpression" &&
