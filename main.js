@@ -136,6 +136,7 @@ function generateTestCases()
 					params[constraint.ident]=createConcreteIntegerValue(0,10);
 					var args = Object.keys(params).map( function(k) {return params[k]; }).join(",");
 					content += "subject.{0}({1});\n".format(funcName, args );
+
 				}
 
 				if(constraint.operator == '==' && constraint.kind == 'integer')
@@ -443,7 +444,7 @@ function constraints(filePath)
 
 			});
 
-			//console.log( functionConstraints[funcName]);
+			console.log( functionConstraints[funcName]);
 
 		}
 	});
